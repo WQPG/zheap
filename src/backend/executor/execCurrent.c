@@ -195,7 +195,10 @@ execCurrentOf(CurrentOfExpr *cexpr,
 			 */
 			IndexScanDesc scan = ((IndexOnlyScanState *) scanstate)->ioss_ScanDesc;
 
-			*current_tid = scan->xs_ctup.t_self;
+			if (RelationStorageIsZHeap(scan->heapRelation))
+				*current_tid = scan->cur_tid;
+			else
+				*current_tid = scan->xs_ctup.t_self;
 		}
 		else
 		{
