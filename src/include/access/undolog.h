@@ -237,7 +237,15 @@ typedef struct UndoLogMetaData
 	uint16	prevlen;
 } UndoLogMetaData;
 
-/* Record the undo log number used for a transaction. */
+/*
+ * Record the meta-data for one undo log.  We emit one of these records the
+ * first time each undo log is used after a checkpoint.  When replayed during
+ * crash recovery, this will make sure the undo log's meta-data is
+ * reestablished, since the data recorded for a checkpoint under pg_undo
+ * may be from the future.  If an undo log is never used after a checkpoint,
+ * there will be no xl_undolog_meta record, but the checkpoint's data must be
+ * correct.
+ */
 typedef struct xl_undolog_meta
 {
 	UndoLogMetaData	meta;
