@@ -1176,7 +1176,7 @@ check_tup_satisfies_update:
 			 * transaction.
 			 */
 			trans_slot_id = PageGetTransactionSlotId(relation, buffer, epoch, xid,
-													 &prev_urecptr, false);
+													 &prev_urecptr, false, false);
 
 			if (trans_slot_id != InvalidXactSlotId)
 			{
@@ -1421,7 +1421,7 @@ check_tup_satisfies_update:
 		 * transaction.
 		 */
 		trans_slot_id = PageGetTransactionSlotId(relation, buffer, epoch, xid,
-												 &prev_urecptr, false);
+												 &prev_urecptr, false, false);
 
 		if (trans_slot_id != InvalidXactSlotId)
 		{
@@ -2088,7 +2088,7 @@ check_tup_satisfies_update:
 			 * transaction.
 			 */
 			trans_slot_id = PageGetTransactionSlotId(relation, buffer, epoch, xid,
-													 &prev_urecptr, false);
+													 &prev_urecptr, false, false);
 
 			if (trans_slot_id != InvalidXactSlotId)
 			{
@@ -2427,7 +2427,7 @@ check_tup_satisfies_update:
 		 * transaction.
 		 */
 		trans_slot_id = PageGetTransactionSlotId(relation, buffer, epoch, xid,
-												 &prev_urecptr, false);
+												 &prev_urecptr, false, false);
 
 		if (trans_slot_id != InvalidXactSlotId)
 		{
@@ -3781,7 +3781,7 @@ zheap_lock_tuple(Relation relation, ZHeapTuple tuple,
 	 * transaction.
 	 */
 	trans_slot_id = PageGetTransactionSlotId(relation, *buffer, epoch, xid,
-											 &urec_ptr, false);
+											 &urec_ptr, false, false);
 
 	/*
 	 * ctid needs to be fetched from undo chain.  See zheap_update.
@@ -6428,11 +6428,14 @@ PageSetTransactionSlotInfo(Buffer buf, int trans_slot_id, uint32 epoch,
 /*
  * PageGetTransactionSlotId - Get the transaction slot for the given epoch and
  *			xid.
+ *
+ * If the slot is not in the TPD page but the caller has asked to lock the TPD
+ * buffer than do so.
  */
 int
 PageGetTransactionSlotId(Relation rel, Buffer buf, uint32 epoch,
 						 TransactionId xid, UndoRecPtr *urec_ptr,
-						 bool keepTPDBufLock)
+						 bool keepTPDBufLock, bool locktpd)
 {
 	ZHeapPageOpaque	opaque;
 	Page	page;
@@ -6463,6 +6466,9 @@ PageGetTransactionSlotId(Relation rel, Buffer buf, uint32 epoch,
 			opaque->transinfo[slot_no].xid == xid)
 		{
 			*urec_ptr = opaque->transinfo[slot_no].urec_ptr;
+
+			if (locktpd)
+				TPDPageLock(rel, buf);
 			return slot_no + 1;
 		}
 	}
@@ -6478,6 +6484,8 @@ PageGetTransactionSlotId(Relation rel, Buffer buf, uint32 epoch,
 		if (tpd_e_slot != InvalidXactSlotId)
 			return tpd_e_slot;
 	}
+	else if (locktpd)
+		TPDPageLock(rel, buf);
 
 	return InvalidXactSlotId;
 }
